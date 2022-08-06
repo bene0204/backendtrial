@@ -15,6 +15,7 @@ public class ClientServiceImpl implements ClientService{
     public String registerClient(Client client) {
         String apiKey = UUID.randomUUID().toString();
 
+        client.setEmail(client.getEmail().toLowerCase());
         client.setApiKey(apiKey);
         this.clientRepository.save(client);
         return apiKey;
