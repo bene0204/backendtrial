@@ -1,12 +1,16 @@
 package com.benem.findyourdreamjob.positions;
 
 import com.benem.findyourdreamjob.clients.ClientService;
+import com.benem.findyourdreamjob.exceptions.InvalidApiKeyException;
 import com.benem.findyourdreamjob.positions.response_models.muse_api.MuseResponse;
 import com.benem.findyourdreamjob.positions.response_models.muse_api.MuseResults;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.server.ResponseStatusException;
 
+import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -20,7 +24,7 @@ public class PositionServiceImpl implements PositionService {
     private ClientService clientService;
 
     @Override
-    public String addPosition(Position position, String apiKey) throws Exception {
+    public String addPosition(Position position, String apiKey){
 
         this.checkApiKeyValidity(apiKey);
 
@@ -32,47 +36,66 @@ public class PositionServiceImpl implements PositionService {
     }
 
     @Override
-    public List<Position> findMatchingPositions(String name, String location,String apiKey) throws Exception {
+    public List<Position> findMatchingPositions(String name, String location,String apiKey) throws UnsupportedEncodingException {
         this.checkApiKeyValidity(apiKey);
 
         List<Position> matchingPositions = this.positionRepository.findPositionByNameIgnoreCaseAndLocationIgnoreCase(name,location);
 
-        String baseUrl = "https://www.themuse.com/api/public/jobs";
-
-        String charset = StandardCharsets.UTF_8.toString();
-
-        String nameUrlEncoded = URLEncoder.encode(name, charset);
-        String locationUrlEncoded = URLEncoder.encode(location,charset);
-
-        String url = baseUrl +
-                "?category=" + nameUrlEncoded +
-                "&location=" + locationUrlEncoded +
-                "&page=0";
+        String nameUrlEncoded = this.encode(name);
+        String locationUrlEncoded = this.encode(location);
 
         RestTemplate restTemplate = new RestTemplate();
 
-        MuseResponse museResponse = restTemplate.getForObject(url, MuseResponse.class);
+        int pageNumber = 0;
 
-        for (MuseResults result : museResponse.getResults() ) {
+        String url = this.getUrl(nameUrlEncoded, locationUrlEncoded,pageNumber);
 
-            Position newPosition = Position.builder()
-                    .name(result.getName())
-                    .location(result.getLocations().get(0).getName())
-                    .url(result.getRefs().getLandingPage())
-                    .build();
+        int pageCount = restTemplate.getForObject(url,MuseResponse.class).getPageCount();
 
-            matchingPositions.add(newPosition);
+        for(pageNumber = 0; pageNumber < pageCount; pageNumber++) {
+            url = this.getUrl(nameUrlEncoded, locationUrlEncoded,pageNumber);
+            MuseResponse museResponse = restTemplate.getForObject(url, MuseResponse.class);
+
+            for (MuseResults result : museResponse.getResults()) {
+
+                Position newPosition = Position.builder()
+                        .name(result.getName())
+                        .location(result.getLocations())
+                        .url(result.getRefs().getLandingPage())
+                        .build();
+
+                matchingPositions.add(newPosition);
+            }
         }
-
         return matchingPositions;
 
     }
 
-    private void checkApiKeyValidity(String apiKey) throws Exception {
+    private void checkApiKeyValidity(String apiKey) {
         boolean existsByApiKey = this.clientService.validateApiKey(apiKey);
 
         if(!existsByApiKey){
-            throw new Exception("Invalid Api key.");
+            throw new InvalidApiKeyException("Invalid Api Key " + apiKey);
         }
     }
+
+    private String encode(String param) throws UnsupportedEncodingException {
+        String charset = StandardCharsets.UTF_8.toString();
+        String encodedParam = URLEncoder.encode(param, charset);
+
+        return encodedParam;
+    }
+
+    private String getUrl(String name, String location, int page) {
+        String baseUrl = "https://www.themuse.com/api/public/jobs";
+
+        String url = baseUrl +
+                "?category=" + name +
+                "&location=" + location +
+                "&page=" + page;
+
+        return url;
+    }
+
+
 }

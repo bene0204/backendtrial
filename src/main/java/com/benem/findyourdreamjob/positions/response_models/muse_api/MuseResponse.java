@@ -8,6 +8,8 @@ import java.util.List;
 @Data
 public class MuseResponse {
 
+    @JsonProperty("page_count")
+    private int pageCount;
     @JsonProperty("results")
     private List<MuseResults> results;
 }
