@@ -1,14 +1,11 @@
 package com.benem.findyourdreamjob.positions;
 
 import com.benem.findyourdreamjob.clients.ClientService;
-import com.benem.findyourdreamjob.exceptions.InvalidApiKeyException;
 import com.benem.findyourdreamjob.positions.response_models.muse_api.MuseResponse;
 import com.benem.findyourdreamjob.positions.response_models.muse_api.MuseResults;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
@@ -71,12 +68,9 @@ public class PositionServiceImpl implements PositionService {
 
     }
 
-    private void checkApiKeyValidity(String apiKey) {
-        boolean existsByApiKey = this.clientService.validateApiKey(apiKey);
+    public void checkApiKeyValidity(String apiKey) {
+        this.clientService.validateApiKey(apiKey);
 
-        if(!existsByApiKey){
-            throw new InvalidApiKeyException("Invalid Api Key " + apiKey);
-        }
     }
 
     private String encode(String param) throws UnsupportedEncodingException {
